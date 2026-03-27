@@ -1,0 +1,7 @@
+# =============================================================================
+# Home Assistant - Escenas
+# =============================================================================
+# Las escenas se pueden crear desde la UI o editando este archivo.
+# Documentación: https://www.home-assistant.io/integrations/scene/
+# =============================================================================
+[]

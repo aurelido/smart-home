@@ -1,0 +1,99 @@
+# =============================================================================
+# Zigbee2MQTT - Configuración
+# =============================================================================
+# Adaptador: Home Assistant Connect ZBT-2 (Silicon Labs MG24)
+# Documentación: https://www.zigbee2mqtt.io/guide/configuration/
+# =============================================================================
+
+# --- Integración con Home Assistant ---
+homeassistant:
+  enabled: true
+
+# --- Emparejamiento de dispositivos ---
+# IMPORTANTE: Activar solo cuando se vayan a emparejar nuevos dispositivos
+permit_join: false
+
+# --- Conexión MQTT ---
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883
+  user: zigbee2mqtt
+  password: cambiar_contraseña_zigbee2mqtt
+  client_id: zigbee2mqtt
+  keepalive: 60
+  reject_unauthorized: true
+
+# --- Puerto serie (ZBT-2) ---
+serial:
+  port: /dev/ttyACM0
+  adapter: ember
+  baudrate: 460800
+  rtscts: true
+
+# --- Panel web ---
+frontend:
+  port: 8080
+  host: 0.0.0.0
+  # Descomentar y configurar tras el primer arranque:
+  # auth_token: CAMBIAR_POR_TOKEN_SEGURO
+
+# --- Configuración avanzada ---
+advanced:
+  # Clave de red Zigbee - se genera automáticamente en el primer arranque
+  network_key: GENERATE
+  pan_id: GENERATE
+  ext_pan_id: GENERATE
+
+  # Canal Zigbee - canal 20 evita interferencias con WiFi en canales 1 y 6
+  channel: 20
+
+  # Home Assistant
+  homeassistant_discovery_topic: homeassistant
+  homeassistant_status_topic: homeassistant/status
+  homeassistant_legacy_entity_attributes: false
+  legacy_api: false
+  legacy_availability_payload: false
+
+  # Registro de última vez que se vio un dispositivo
+  last_seen: ISO_8601_local
+
+  # Caché de estado
+  cache_state: true
+  cache_state_persistent: true
+  cache_state_send_on_startup: true
+
+  # Logging
+  log_level: info
+  log_output:
+    - console
+    - file
+  log_directory: data/log/%TIMESTAMP%
+  log_file: log.txt
+  log_rotation: true
+
+  # Potencia de transmisión (máximo para mejor cobertura)
+  transmit_power: 20
+
+# --- Seguimiento de disponibilidad ---
+availability:
+  active:
+    timeout: 10
+  passive:
+    timeout: 1500
+
+# --- Actualizaciones OTA ---
+ota:
+  update_check_interval: 1440
+  disable_automatic_update_check: false
+
+# --- Opciones globales de dispositivos ---
+device_options:
+  legacy: false
+  retain: false
+
+# --- Dispositivos ---
+# Se rellenan automáticamente al emparejar dispositivos
+devices: {}
+
+# --- Grupos ---
+groups: {}

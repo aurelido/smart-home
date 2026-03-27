@@ -1,0 +1,32 @@
+# === Secrets (NEVER commit) ===
+.env
+homeassistant/config/secrets.yaml
+mosquitto/config/password_file
+
+# === Runtime data ===
+mosquitto/data/
+mosquitto/log/
+zigbee2mqtt/data/coordinator_backup.json
+zigbee2mqtt/data/database.db
+zigbee2mqtt/data/state.json
+zigbee2mqtt/data/log/
+homeassistant/config/.storage/
+homeassistant/config/.cloud/
+homeassistant/config/home-assistant_v2.db
+homeassistant/config/home-assistant_v2.db-shm
+homeassistant/config/home-assistant_v2.db-wal
+homeassistant/config/tts/
+homeassistant/config/blueprints/
+homeassistant/config/custom_components/
+homeassistant/config/deps/
+homeassistant/config/__pycache__/
+
+# === Backups ===
+backups/
+
+# === OS artifacts ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

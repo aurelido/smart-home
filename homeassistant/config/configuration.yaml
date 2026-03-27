@@ -1,0 +1,79 @@
+# =============================================================================
+# Home Assistant - Configuración principal
+# =============================================================================
+# Documentación: https://www.home-assistant.io/docs/configuration/
+# =============================================================================
+
+homeassistant:
+  name: "Casa Inteligente"
+  unit_system: metric
+  currency: EUR
+  country: ES
+  language: es
+  time_zone: Europe/Madrid
+  # Coordenadas - actualizar con la ubicación real
+  latitude: 40.4168
+  longitude: -3.7038
+  elevation: 650
+
+# --- Panel web ---
+frontend:
+  themes: !include_dir_merge_named themes
+
+# --- API HTTP ---
+http:
+  # Protección contra fuerza bruta
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+  # Descomentar si se usa proxy inverso:
+  # use_x_forwarded_for: true
+  # trusted_proxies:
+  #   - 192.168.1.0/24
+
+# --- Integraciones ---
+
+# MQTT (Mosquitto)
+mqtt:
+  sensor:
+    - name: "Zigbee2MQTT Bridge State"
+      state_topic: "zigbee2mqtt/bridge/state"
+      value_template: "{{ value_json.state }}"
+
+# Registro de eventos
+logger:
+  default: warning
+  logs:
+    homeassistant.components.mqtt: info
+    homeassistant.components.automation: info
+
+# Historial
+history:
+
+# Registro de actividad
+logbook:
+
+# Descubrimiento de dispositivos en la red
+zeroconf:
+ssdp:
+
+# Información del sistema
+system_health:
+
+# Energía
+energy:
+
+# --- Archivos externos ---
+automation: !include automations.yaml
+scene: !include scenes.yaml
+
+# --- Grabadora ---
+recorder:
+  db_url: sqlite:////config/home-assistant_v2.db
+  purge_keep_days: 30
+  commit_interval: 5
+  exclude:
+    domains:
+      - updater
+    entity_globs:
+      - sensor.date_*
+      - sensor.time_*

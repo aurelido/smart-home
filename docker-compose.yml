@@ -1,0 +1,105 @@
+# =============================================================================
+# Smart Home - Docker Compose
+# =============================================================================
+# Synology DS723+ | Home Assistant + Zigbee2MQTT + Mosquitto
+#
+# Uso:
+#   cp .env.example .env   # Configurar secretos
+#   docker compose up -d   # Iniciar todos los servicios
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Mosquitto MQTT Broker
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto:2.0.21
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    environment:
+      - TZ=${TZ:-Europe/Madrid}
+    networks:
+      - smarthome
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Zigbee2MQTT
+  # ---------------------------------------------------------------------------
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    image: ghcr.io/koenkk/zigbee2mqtt:2.1.1
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./zigbee2mqtt/data:/app/data
+      - /run/udev:/run/udev:ro
+    devices:
+      - ${ZIGBEE_ADAPTER_PATH:-/dev/ttyACM0}:/dev/ttyACM0
+    environment:
+      - TZ=${TZ:-Europe/Madrid}
+    networks:
+      - smarthome
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # Home Assistant
+  # ---------------------------------------------------------------------------
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:2026.3
+    restart: unless-stopped
+    # network_mode: host es necesario para descubrimiento mDNS/SSDP
+    # (Chromecast, Bosch Home Connect, etc.)
+    network_mode: host
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=${TZ:-Europe/Madrid}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+# =============================================================================
+# Red interna para comunicación entre contenedores
+# =============================================================================
+networks:
+  smarthome:
+    driver: bridge
+    name: smarthome
+
+# =============================================================================
+# Volúmenes con nombre para datos de Mosquitto (persistentes)
+# =============================================================================
+volumes:
+  mosquitto_data:
+    name: mosquitto_data
+  mosquitto_log:
+    name: mosquitto_log
