@@ -79,7 +79,7 @@ setup_mqtt_passwords() {
         "
 
     if [ -s "$PASSWORD_FILE" ]; then
-        chmod 600 "$PASSWORD_FILE"
+        chmod 644 "$PASSWORD_FILE"
         log_info "Contraseñas MQTT configuradas ✓"
     else
         log_error "Error al crear contraseñas MQTT."
