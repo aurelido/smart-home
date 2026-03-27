@@ -18,15 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BACKUP_DIR="$PROJECT_DIR/backups"
 
-# Colores
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log_info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
-log_warn()  { echo -e "${YELLOW}[AVISO]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# Cargar librería de logging
+source "$SCRIPT_DIR/lib/log.sh"
+log_init "restore"
 
 # --- Determinar archivo de copia de seguridad ---
 if [ -n "${1:-}" ]; then
@@ -73,7 +67,7 @@ if [[ ! "$CONFIRM" =~ ^[sS]$ ]]; then
 fi
 
 # --- Crear copia de seguridad de emergencia ---
-log_info "Creando copia de seguridad de emergencia de la configuración actual..."
+log_step "Creando copia de seguridad de emergencia"
 EMERGENCY_BACKUP="$BACKUP_DIR/emergency_pre_restore_$(date +%Y%m%d_%H%M%S).tar.gz"
 tar -czf "$EMERGENCY_BACKUP" \
     -C "$PROJECT_DIR" \
@@ -85,23 +79,21 @@ tar -czf "$EMERGENCY_BACKUP" \
 log_info "Copia de emergencia: $(basename "$EMERGENCY_BACKUP")"
 
 # --- Detener servicios ---
-log_info "Deteniendo servicios..."
+log_step "Deteniendo servicios"
 docker compose -f "$PROJECT_DIR/docker-compose.yml" down 2>/dev/null || true
 
 # --- Restaurar ---
-log_info "Restaurando desde copia de seguridad..."
+log_step "Restaurando archivos"
 tar -xzf "$BACKUP_FILE" -C "$PROJECT_DIR"
 log_info "Archivos restaurados ✓"
 
 # --- Reiniciar servicios ---
-log_info "Iniciando servicios..."
+log_step "Iniciando servicios"
 docker compose -f "$PROJECT_DIR/docker-compose.yml" up -d
 
 # --- Verificar ---
-echo ""
-log_info "=== Estado de los servicios ==="
+log_separator "Estado de los servicios"
 sleep 5
 docker compose -f "$PROJECT_DIR/docker-compose.yml" ps
-echo ""
-log_info "Restauración completada."
-log_info "Verificar que todos los servicios funcionan correctamente."
+log_info "Restauración completada. Verificar que todos los servicios funcionan."
+log_info "Log completo: $(log_file_path)"

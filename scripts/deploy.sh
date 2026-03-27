@@ -12,42 +12,39 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Colores
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log_info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
-log_warn()  { echo -e "${YELLOW}[AVISO]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# Cargar librería de logging
+source "$SCRIPT_DIR/lib/log.sh"
+log_init "deploy"
 
 # --- Verificaciones previas ---
 check_prerequisites() {
-    log_info "Verificando requisitos..."
+    log_step "Verificando requisitos"
 
     if ! command -v docker &>/dev/null; then
         log_error "Docker no está instalado. Instalar Container Manager desde Package Center."
         exit 1
     fi
+    log_debug "Docker encontrado: $(docker --version)"
 
     if ! docker compose version &>/dev/null; then
         log_error "Docker Compose no disponible."
         exit 1
     fi
+    log_debug "Docker Compose encontrado: $(docker compose version --short)"
 
     if [ ! -f "$PROJECT_DIR/.env" ]; then
         log_error "Archivo .env no encontrado."
         log_info "Ejecutar: cp .env.example .env y configurar los valores."
         exit 1
     fi
+    log_debug "Archivo .env encontrado"
 
     log_info "Requisitos verificados ✓"
 }
 
 # --- Crear directorios necesarios ---
 create_directories() {
-    log_info "Creando directorios..."
+    log_step "Creando directorios"
     mkdir -p "$PROJECT_DIR/backups"
     mkdir -p "$PROJECT_DIR/homeassistant/config/themes"
     log_info "Directorios creados ✓"
@@ -62,19 +59,22 @@ setup_mqtt_passwords() {
         return
     fi
 
-    log_info "Configurando contraseñas MQTT..."
+    log_step "Configurando contraseñas MQTT"
 
     # Cargar variables de entorno
     source "$PROJECT_DIR/.env"
 
-    # Crear archivo de contraseñas temporal
-    touch "$PASSWORD_FILE"
+    # Obtener imagen de Mosquitto del docker-compose.yml
+    local MOSQUITTO_IMAGE
+    MOSQUITTO_IMAGE=$(grep 'image:.*mosquitto' "$PROJECT_DIR/docker-compose.yml" | head -1 | awk '{print $2}')
 
-    # Iniciar Mosquitto temporalmente para generar contraseñas
-    docker compose -f "$PROJECT_DIR/docker-compose.yml" run --rm \
-        -v "$PASSWORD_FILE:/mosquitto/config/password_file" \
-        --entrypoint sh mosquitto -c "
-            mosquitto_passwd -b /mosquitto/config/password_file '${MQTT_USER_ZIGBEE2MQTT}' '${MQTT_PASSWORD_ZIGBEE2MQTT}' && \
+    # Generar contraseñas usando docker run directamente
+    # (docker compose run hereda el volumen :ro del compose file)
+    docker run --rm \
+        -v "$PROJECT_DIR/mosquitto/config:/mosquitto/config" \
+        "$MOSQUITTO_IMAGE" \
+        sh -c "
+            mosquitto_passwd -c -b /mosquitto/config/password_file '${MQTT_USER_ZIGBEE2MQTT}' '${MQTT_PASSWORD_ZIGBEE2MQTT}' && \
             mosquitto_passwd -b /mosquitto/config/password_file '${MQTT_USER_HOMEASSISTANT}' '${MQTT_PASSWORD_HOMEASSISTANT}'
         "
 
@@ -89,43 +89,35 @@ setup_mqtt_passwords() {
 
 # --- Descargar imágenes ---
 pull_images() {
-    log_info "Descargando imágenes Docker..."
+    log_step "Descargando imágenes Docker"
     docker compose -f "$PROJECT_DIR/docker-compose.yml" pull
     log_info "Imágenes descargadas ✓"
 }
 
 # --- Iniciar servicios ---
 start_services() {
-    log_info "Iniciando servicios..."
+    log_step "Iniciando servicios"
     docker compose -f "$PROJECT_DIR/docker-compose.yml" up -d
     log_info "Servicios iniciados ✓"
 }
 
 # --- Mostrar estado ---
 show_status() {
-    echo ""
-    log_info "=== Estado de los servicios ==="
+    log_separator "Estado de los servicios"
     docker compose -f "$PROJECT_DIR/docker-compose.yml" ps
-    echo ""
-    log_info "=== URLs de acceso ==="
-    echo "  Home Assistant:  http://192.168.1.100:8123"
-    echo "  Zigbee2MQTT:     http://192.168.1.100:8080"
-    echo "  MQTT Broker:     192.168.1.100:1883"
-    echo ""
-    log_info "Tras el primer arranque:"
-    echo "  1. Acceder a Home Assistant y completar el asistente de configuración"
-    echo "  2. Configurar la integración MQTT en Home Assistant"
-    echo "  3. En Zigbee2MQTT, activar 'permit_join' para emparejar dispositivos"
-    echo ""
+    log_separator "URLs de acceso"
+    log_info "Home Assistant:  http://192.168.1.100:8123"
+    log_info "Zigbee2MQTT:     http://192.168.1.100:8080"
+    log_info "MQTT Broker:     192.168.1.100:1883"
+    log_separator "Post-instalación"
+    log_info "1. Acceder a Home Assistant y completar el asistente de configuración"
+    log_info "2. Configurar la integración MQTT en Home Assistant"
+    log_info "3. En Zigbee2MQTT, activar 'permit_join' para emparejar dispositivos"
+    log_info "Log completo: $(log_file_path)"
 }
 
 # --- Ejecución principal ---
 main() {
-    echo "============================================="
-    echo "  Smart Home - Despliegue"
-    echo "============================================="
-    echo ""
-
     check_prerequisites
 
     if [ "${1:-}" = "update" ]; then

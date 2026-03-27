@@ -17,25 +17,25 @@
 
 set -euo pipefail
 
-LOG_FILE="/var/log/zigbee-usb-setup.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
-}
-
-log "=== Iniciando configuración USB Zigbee ==="
+# Cargar librería de logging
+# En el NAS los logs van a /var/log, no al directorio del proyecto
+source "$SCRIPT_DIR/lib/log.sh"
+log_init "usb-setup" "/var/log/smart-home"
 
 # --- Cargar módulos del kernel para dispositivos USB serie ---
+log_step "Cargando módulos del kernel"
 MODULES=("usbserial" "ftdi_sio" "cdc-acm")
 
 for mod in "${MODULES[@]}"; do
     if lsmod | grep -q "^${mod}"; then
-        log "Módulo '$mod' ya cargado"
+        log_debug "Módulo '$mod' ya cargado"
     else
         if modprobe "$mod" 2>/dev/null; then
-            log "Módulo '$mod' cargado correctamente"
+            log_info "Módulo '$mod' cargado correctamente"
         else
-            log "AVISO: No se pudo cargar el módulo '$mod' (puede que no sea necesario)"
+            log_warn "No se pudo cargar el módulo '$mod' (puede que no sea necesario)"
         fi
     fi
 done
@@ -44,24 +44,27 @@ done
 sleep 3
 
 # --- Configurar permisos del dispositivo ---
+log_step "Configurando permisos del dispositivo"
 DEVICE_PATH="/dev/ttyACM0"
 FALLBACK_PATH="/dev/ttyUSB0"
 
 if [ -e "$DEVICE_PATH" ]; then
     chmod 666 "$DEVICE_PATH"
-    log "Permisos configurados para $DEVICE_PATH"
+    log_info "Permisos configurados para $DEVICE_PATH"
 elif [ -e "$FALLBACK_PATH" ]; then
     chmod 666 "$FALLBACK_PATH"
-    log "Dispositivo encontrado en ruta alternativa: $FALLBACK_PATH"
-    log "IMPORTANTE: Actualizar ZIGBEE_ADAPTER_PATH en .env"
+    log_warn "Dispositivo encontrado en ruta alternativa: $FALLBACK_PATH"
+    log_warn "Actualizar ZIGBEE_ADAPTER_PATH en .env"
 else
-    log "ERROR: No se encontró el adaptador Zigbee en $DEVICE_PATH ni $FALLBACK_PATH"
-    log "Verificar conexión USB del ZBT-2 y ejecutar: dmesg | grep tty"
+    log_error "No se encontró el adaptador Zigbee en $DEVICE_PATH ni $FALLBACK_PATH"
+    log_error "Verificar conexión USB del ZBT-2 y ejecutar: dmesg | grep tty"
     exit 1
 fi
 
 # --- Verificación ---
-log "Dispositivos USB serie disponibles:"
-ls -la /dev/ttyACM* /dev/ttyUSB* 2>/dev/null | tee -a "$LOG_FILE" || true
+log_debug "Dispositivos USB serie disponibles:"
+ls -la /dev/ttyACM* /dev/ttyUSB* 2>/dev/null | while read -r line; do
+    log_debug "  $line"
+done || true
 
-log "=== Configuración USB completada ==="
+log_info "Configuración USB completada ✓"

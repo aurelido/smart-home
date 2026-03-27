@@ -25,49 +25,25 @@ BACKUP_DIR="$PROJECT_DIR/backups"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_FILE="$BACKUP_DIR/smarthome_backup_${TIMESTAMP}.tar.gz"
 RETENTION_DAYS=30
-LOG_FILE="$BACKUP_DIR/backup.log"
 
-# Colores (solo si hay terminal)
-if [ -t 1 ]; then
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    RED='\033[0;31m'
-    NC='\033[0m'
-else
-    GREEN=''; YELLOW=''; RED=''; NC=''
-fi
-
-log() {
-    local msg="$(date '+%Y-%m-%d %H:%M:%S') - $1"
-    echo -e "${GREEN}${msg}${NC}"
-    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
-}
-
-log_warn() {
-    local msg="$(date '+%Y-%m-%d %H:%M:%S') - AVISO: $1"
-    echo -e "${YELLOW}${msg}${NC}"
-    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
-}
-
-log_error() {
-    local msg="$(date '+%Y-%m-%d %H:%M:%S') - ERROR: $1"
-    echo -e "${RED}${msg}${NC}" >&2
-    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
-}
+# Cargar librería de logging
+source "$SCRIPT_DIR/lib/log.sh"
+log_init "backup"
 
 # --- Crear directorio de copias ---
 mkdir -p "$BACKUP_DIR"
 
-log "=== Iniciando copia de seguridad ==="
-
 # --- Verificar espacio disponible ---
+log_step "Verificando espacio disponible"
 AVAILABLE_MB=$(df -m "$BACKUP_DIR" | awk 'NR==2 {print $4}')
+log_debug "Espacio disponible: ${AVAILABLE_MB}MB"
 if [ "$AVAILABLE_MB" -lt 500 ]; then
     log_warn "Espacio disponible bajo: ${AVAILABLE_MB}MB"
 fi
 
 # --- Crear copia de seguridad ---
-log "Creando archivo: $(basename "$BACKUP_FILE")"
+log_step "Creando copia de seguridad"
+log_info "Archivo: $(basename "$BACKUP_FILE")"
 
 # Archivos y directorios a incluir
 BACKUP_SOURCES=(
@@ -97,7 +73,7 @@ for src in "${BACKUP_SOURCES[@]}"; do
     if [ -e "$PROJECT_DIR/$src" ]; then
         EXISTING_SOURCES+=("$src")
     else
-        log_warn "No encontrado (omitido): $src"
+        log_debug "No encontrado (omitido): $src"
     fi
 done
 
@@ -110,7 +86,7 @@ tar -czf "$BACKUP_FILE" \
 # --- Verificar resultado ---
 if [ -f "$BACKUP_FILE" ]; then
     BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-    log "Copia de seguridad creada: $BACKUP_SIZE"
+    log_info "Copia de seguridad creada: $BACKUP_SIZE"
 else
     log_error "Error al crear la copia de seguridad"
     exit 1
@@ -118,15 +94,17 @@ fi
 
 # --- Eliminar copias antiguas ---
 if [ "${1:-}" != "--no-prune" ]; then
-    log "Eliminando copias de seguridad con más de ${RETENTION_DAYS} días..."
+    log_step "Rotación de copias antiguas"
     DELETED=$(find "$BACKUP_DIR" -name "smarthome_backup_*.tar.gz" \
         -mtime "+${RETENTION_DAYS}" -delete -print | wc -l)
     if [ "$DELETED" -gt 0 ]; then
-        log "Eliminadas $DELETED copias antiguas"
+        log_info "Eliminadas $DELETED copias con más de ${RETENTION_DAYS} días"
+    else
+        log_debug "No hay copias antiguas que eliminar"
     fi
 fi
 
 # --- Resumen ---
 TOTAL_BACKUPS=$(find "$BACKUP_DIR" -name "smarthome_backup_*.tar.gz" | wc -l)
-log "Total de copias de seguridad: $TOTAL_BACKUPS"
-log "=== Copia de seguridad completada ==="
+log_info "Total de copias de seguridad: $TOTAL_BACKUPS"
+log_info "Log completo: $(log_file_path)"

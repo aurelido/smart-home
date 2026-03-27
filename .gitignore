@@ -24,6 +24,9 @@ homeassistant/config/__pycache__/
 # === Backups ===
 backups/
 
+# === Logs ===
+logs/
+
 # === OS artifacts ===
 .DS_Store
 Thumbs.db
