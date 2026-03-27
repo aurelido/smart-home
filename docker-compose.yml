@@ -54,6 +54,8 @@ services:
       - ${ZIGBEE_ADAPTER_PATH:-/dev/ttyACM0}:/dev/ttyACM0
     environment:
       - TZ=${TZ:-Europe/Madrid}
+      - ZIGBEE2MQTT_CONFIG_MQTT_USER=${MQTT_USER_ZIGBEE2MQTT}
+      - ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD=${MQTT_PASSWORD_ZIGBEE2MQTT}
     networks:
       - smarthome
     depends_on:
