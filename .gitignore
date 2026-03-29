@@ -10,8 +10,13 @@ zigbee2mqtt/data/coordinator_backup.json
 zigbee2mqtt/data/database.db
 zigbee2mqtt/data/state.json
 zigbee2mqtt/data/log/
+zigbee2mqtt/data/configuration_backup_*.yaml
+zigbee2mqtt/data/migration-*.log
 homeassistant/config/.storage/
 homeassistant/config/.cloud/
+homeassistant/config/.cache/
+homeassistant/config/.HA_VERSION
+homeassistant/config/.ha_run.lock
 homeassistant/config/home-assistant_v2.db
 homeassistant/config/home-assistant_v2.db-shm
 homeassistant/config/home-assistant_v2.db-wal
@@ -24,8 +29,12 @@ homeassistant/config/__pycache__/
 # === Backups ===
 backups/
 
-# === Logs ===
+# === Logs (scripts + containers) ===
 logs/
+homeassistant/config/home-assistant.log*
+
+# === Utilities / helpers ===
+scripts/utils/
 
 # === OS artifacts ===
 .DS_Store

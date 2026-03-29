@@ -87,6 +87,25 @@ setup_mqtt_passwords() {
     fi
 }
 
+# --- Inyectar credenciales MQTT en Zigbee2MQTT ---
+patch_zigbee2mqtt_config() {
+    local Z2M_CONFIG="$PROJECT_DIR/zigbee2mqtt/data/configuration.yaml"
+
+    source "$PROJECT_DIR/.env"
+
+    if grep -q '__MQTT_USER__\|__MQTT_PASSWORD__' "$Z2M_CONFIG"; then
+        log_step "Inyectando credenciales MQTT en Zigbee2MQTT"
+        sed -i.bak \
+            -e "s|__MQTT_USER__|${MQTT_USER_ZIGBEE2MQTT}|g" \
+            -e "s|__MQTT_PASSWORD__|${MQTT_PASSWORD_ZIGBEE2MQTT}|g" \
+            "$Z2M_CONFIG"
+        rm -f "${Z2M_CONFIG}.bak"
+        log_info "Credenciales MQTT inyectadas en configuración de Zigbee2MQTT ✓"
+    else
+        log_debug "Credenciales MQTT ya configuradas en Zigbee2MQTT"
+    fi
+}
+
 # --- Descargar imágenes ---
 pull_images() {
     log_step "Descargando imágenes Docker"
@@ -129,6 +148,7 @@ main() {
         create_directories
         pull_images
         setup_mqtt_passwords
+        patch_zigbee2mqtt_config
         start_services
     fi
 

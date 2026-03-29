@@ -14,11 +14,12 @@ homeassistant:
 permit_join: false
 
 # --- Conexión MQTT ---
-# Las credenciales MQTT se inyectan desde .env vía variables de entorno:
-#   ZIGBEE2MQTT_CONFIG_MQTT_USER / ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD
+# Las credenciales se inyectan automáticamente por deploy.sh desde .env
 mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://mosquitto:1883
+  user: __MQTT_USER__
+  password: __MQTT_PASSWORD__
   client_id: zigbee2mqtt
   keepalive: 60
   reject_unauthorized: true
