@@ -1,107 +1,158 @@
-# =============================================================================
-# Smart Home - Docker Compose
-# =============================================================================
-# Synology DS723+ | Home Assistant + Zigbee2MQTT + Mosquitto
-#
-# Uso:
-#   cp .env.example .env   # Configurar secretos
-#   docker compose up -d   # Iniciar todos los servicios
-# =============================================================================
+# ============================================
+# CASA NÓRDICA - Docker Compose Configuration
+# ============================================
+# Version: 1.0.0
+# Last Updated: 2026-03-24
+# Description: Main orchestration file for all services
+# ============================================
 
+version: '3.8'
+
+# ============================================
+# DEFAULT ENVIRONMENT VARIABLES
+# ============================================
+x-environment: &default-environment
+  TZ: ${TZ}
+  PUID: ${PUID}
+  PGID: ${PGID}
+
+# ============================================
+# RESTART POLICY
+# ============================================
+x-restart-policy: &restart-policy
+  restart: unless-stopped
+
+# ============================================
+# LOGGING CONFIGURATION
+# ============================================
+x-logging: &logging-config
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+      compress: "true"
+
+# ============================================
+# SERVICES
+# ============================================
 services:
-  # ---------------------------------------------------------------------------
-  # Mosquitto MQTT Broker
-  # ---------------------------------------------------------------------------
-  mosquitto:
-    container_name: mosquitto
-    image: eclipse-mosquitto:2.0.21
-    restart: unless-stopped
-    ports:
-      - "1883:1883"
-      - "9001:9001"
+
+  # ============================================
+  # HOME ASSISTANT
+  # ============================================
+  home-assistant:
+    <<: [*restart-policy, *logging-config]
+    image: ${HA_IMAGE}:${HA_TAG}
+    container_name: ${HA_CONTAINER_NAME}
+    hostname: home-assistant
+    network_mode: ${NETWORK_MODE}
+    privileged: false
+    user: "${PUID}:${PGID}"
+    
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - mosquitto_data:/mosquitto/data
-      - mosquitto_log:/mosquitto/log
+      - ./homeassistant/config:/config:rw
+      - ./homeassistant/ssl:/ssl:ro
+      - ./homeassistant/addons:/addons:rw
+      - ./homeassistant/media:/media:rw
+      - ./backup/homeassistant:/backup:rw
+      - /etc/localtime:/etc/localtime:ro
+      - /dev:/dev:ro
+    
     environment:
-      - TZ=${TZ:-Europe/Madrid}
-    networks:
-      - smarthome
-    deploy:
-      resources:
-        limits:
-          memory: 128M
+      <<: *default-environment
+    
+    devices:
+      - ${Z2M_DEVICE}:${Z2M_DEVICE}
+    
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      zigbee2mqtt:
+        condition: service_healthy
+    
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-i", "healthcheck", "-u", "${MQTT_USER_ZIGBEE2MQTT}", "-P", "${MQTT_PASSWORD_ZIGBEE2MQTT}", "-W", "3"]
+      test: ["CMD", "curl", "-f", "http://localhost:${HA_PORT}/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 120s
+    
+    labels:
+      - "com.synology.description=Home Assistant - Smart Home Hub"
+      - "com.synology.version=${HA_TAG}"
 
-  # ---------------------------------------------------------------------------
-  # Zigbee2MQTT
-  # ---------------------------------------------------------------------------
+  # ============================================
+  # ZIGBEE2MQTT
+  # ============================================
   zigbee2mqtt:
-    container_name: zigbee2mqtt
-    image: ghcr.io/koenkk/zigbee2mqtt:2.1.1
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
+    <<: [*restart-policy, *logging-config]
+    image: ${Z2M_IMAGE}:${Z2M_TAG}
+    container_name: ${Z2M_CONTAINER_NAME}
+    hostname: zigbee2mqtt
+    network_mode: ${NETWORK_MODE}
+    privileged: false
+    user: "${PUID}:${PGID}"
+    
     volumes:
-      - ./zigbee2mqtt/data:/app/data
-      - /run/udev:/run/udev:ro
+      - ./zigbee2mqtt/data:/app/data:rw
+      - ./backup/zigbee2mqtt:/backup:rw
+      - /dev:/dev:ro
+    
+    environment:
+      <<: *default-environment
+      ZIGBEE2MQTT_DATA: /app/data
+    
     devices:
-      - ${ZIGBEE_ADAPTER_PATH:-/dev/ttyACM0}:/dev/ttyACM0
-    environment:
-      - TZ=${TZ:-Europe/Madrid}
-      - ZIGBEE2MQTT_CONFIG_MQTT_USER=${MQTT_USER_ZIGBEE2MQTT}
-      - ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD=${MQTT_PASSWORD_ZIGBEE2MQTT}
-    networks:
-      - smarthome
+      - ${Z2M_DEVICE}:${Z2M_DEVICE}
+    
     depends_on:
       mosquitto:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${Z2M_PORT}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    labels:
+      - "com.synology.description=Zigbee2MQTT - Zigbee Coordinator"
+      - "com.synology.version=${Z2M_TAG}"
 
-  # ---------------------------------------------------------------------------
-  # Home Assistant
-  # ---------------------------------------------------------------------------
-  homeassistant:
-    container_name: homeassistant
-    image: ghcr.io/home-assistant/home-assistant:2026.3
-    restart: unless-stopped
-    # network_mode: host es necesario para descubrimiento mDNS/SSDP
-    # (Chromecast, Bosch Home Connect, etc.)
-    network_mode: host
+  # ============================================
+  # MOSQUITTO MQTT BROKER
+  # ============================================
+  mosquitto:
+    <<: [*restart-policy, *logging-config]
+    image: ${MQTT_IMAGE}:${MQTT_TAG}
+    container_name: ${MQTT_CONTAINER_NAME}
+    hostname: mosquitto
+    network_mode: ${NETWORK_MODE}
+    privileged: false
+    user: "${PUID}:${PGID}"
+    
     volumes:
-      - ./homeassistant/config:/config
-      - /etc/localtime:/etc/localtime:ro
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data:rw
+      - ./mosquitto/log:/mosquitto/log:rw
+      - ./backup/mosquitto:/backup:rw
+    
     environment:
-      - TZ=${TZ:-Europe/Madrid}
-    depends_on:
-      mosquitto:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-
-# =============================================================================
-# Red interna para comunicación entre contenedores
-# =============================================================================
-networks:
-  smarthome:
-    driver: bridge
-    name: smarthome
-
-# =============================================================================
-# Volúmenes con nombre para datos de Mosquitto (persistentes)
-# =============================================================================
-volumes:
-  mosquitto_data:
-    name: mosquitto_data
-  mosquitto_log:
-    name: mosquitto_log
+      <<: *default-environment
+    
+    ports:
+      - "${MQTT_PORT}:${MQTT_PORT}"
+      - "${MQTT_WS_PORT}:${MQTT_WS_PORT}"
+    
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "\$SYS/#", "-C", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    labels:
+      - "com.synology.description=Mosquitto - MQTT Broker"
+      - "com.synology.version=${MQTT_TAG}"

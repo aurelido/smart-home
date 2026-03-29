@@ -1,100 +1,30 @@
-# =============================================================================
-# Zigbee2MQTT - Configuración
-# =============================================================================
-# Adaptador: Home Assistant Connect ZBT-2 (Silicon Labs MG24)
-# Documentación: https://www.zigbee2mqtt.io/guide/configuration/
-# =============================================================================
-
-# --- Integración con Home Assistant ---
-homeassistant:
-  enabled: true
-
-# --- Emparejamiento de dispositivos ---
-# IMPORTANTE: Activar solo cuando se vayan a emparejar nuevos dispositivos
+homeassistant: true
 permit_join: false
 
-# --- Conexión MQTT ---
-# Las credenciales se inyectan automáticamente por deploy.sh desde .env
 mqtt:
   base_topic: zigbee2mqtt
-  server: mqtt://mosquitto:1883
-  user: __MQTT_USER__
-  password: __MQTT_PASSWORD__
-  client_id: zigbee2mqtt
-  keepalive: 60
+  server: mqtt://192.168.1.100:1883
+  user: homeassistant
+  password: CHANGE_ME_MQTT_PASSWORD
   reject_unauthorized: true
 
-# --- Puerto serie (ZBT-2) ---
 serial:
-  port: /dev/ttyACM0
-  adapter: ember
-  baudrate: 460800
-  rtscts: true
+  port: /dev/ttyUSB0
+  adapter: zstack
+  baudrate: 115200
 
-# --- Panel web ---
+advanced:
+  channel: 25
+  pan_id: 0x5A3C
+  ext_pan_id: [0x8F, 0x2B, 0x4D, 0x6E, 0x1A, 0x9C, 0x7F, 0x3E]
+  network_key: [47, 92, 134, 201, 56, 178, 23, 145, 89, 212, 67, 198, 34, 156, 78, 223]
+  log_level: warning
+  log_output: [console, file]
+  log_rotation: true
+  log_max_files: 5
+  log_max_size: 5
+  transmit_power: 20
+
 frontend:
   port: 8080
   host: 0.0.0.0
-  # Descomentar y configurar tras el primer arranque:
-  # auth_token: CAMBIAR_POR_TOKEN_SEGURO
-
-# --- Configuración avanzada ---
-advanced:
-  # Clave de red Zigbee - se genera automáticamente en el primer arranque
-  network_key: GENERATE
-  pan_id: GENERATE
-  ext_pan_id: GENERATE
-
-  # Canal Zigbee - canal 20 evita interferencias con WiFi en canales 1 y 6
-  channel: 20
-
-  # Home Assistant
-  homeassistant_discovery_topic: homeassistant
-  homeassistant_status_topic: homeassistant/status
-  homeassistant_legacy_entity_attributes: false
-  legacy_api: false
-  legacy_availability_payload: false
-
-  # Registro de última vez que se vio un dispositivo
-  last_seen: ISO_8601_local
-
-  # Caché de estado
-  cache_state: true
-  cache_state_persistent: true
-  cache_state_send_on_startup: true
-
-  # Logging
-  log_level: info
-  log_output:
-    - console
-    - file
-  log_directory: data/log/%TIMESTAMP%
-  log_file: log.txt
-  log_rotation: true
-
-  # Potencia de transmisión (máximo para mejor cobertura)
-  transmit_power: 20
-
-# --- Seguimiento de disponibilidad ---
-availability:
-  active:
-    timeout: 10
-  passive:
-    timeout: 1500
-
-# --- Actualizaciones OTA ---
-ota:
-  update_check_interval: 1440
-  disable_automatic_update_check: false
-
-# --- Opciones globales de dispositivos ---
-device_options:
-  legacy: false
-  retain: false
-
-# --- Dispositivos ---
-# Se rellenan automáticamente al emparejar dispositivos
-devices: {}
-
-# --- Grupos ---
-groups: {}
