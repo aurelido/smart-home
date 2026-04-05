@@ -1,7 +1,123 @@
 # =============================================================================
 # Home Assistant - Automatizaciones
 # =============================================================================
-# Las automatizaciones se pueden crear desde la UI o editando este archivo.
 # Documentación: https://www.home-assistant.io/docs/automation/
 # =============================================================================
-[]
+
+# =============================================================================
+# RECIBIDOR — Philips Hue White 800 E27
+# Entidad: light.luz_recibidor
+# =============================================================================
+
+# --- Encender al atardecer (brillo suave de bienvenida) ---
+- id: recibidor_encender_atardecer
+  alias: "Recibidor - Encender al atardecer"
+  description: "Enciende la luz del recibidor al atardecer con brillo suave"
+  trigger:
+    - platform: sun
+      event: sunset
+      offset: "-00:15:00"
+  condition:
+    - condition: state
+      entity_id: input_boolean.modo_noche
+      state: "off"
+  action:
+    - action: light.turn_on
+      target:
+        entity_id: light.luz_recibidor
+      data:
+        brightness_pct: 60
+        transition: 5
+  mode: single
+
+# --- Apagar en modo noche ---
+- id: recibidor_apagar_modo_noche
+  alias: "Recibidor - Apagar en modo noche"
+  description: "Apaga la luz del recibidor cuando se activa el modo noche"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.modo_noche
+      to: "on"
+  action:
+    - action: light.turn_off
+      target:
+        entity_id: light.luz_recibidor
+      data:
+        transition: 10
+  mode: single
+
+# --- Apagar automáticamente a las 00:30 ---
+- id: recibidor_apagar_medianoche
+  alias: "Recibidor - Apagar a medianoche"
+  description: "Apaga la luz del recibidor automáticamente a las 00:30"
+  trigger:
+    - platform: time
+      at: "00:30:00"
+  condition:
+    - condition: state
+      entity_id: light.luz_recibidor
+      state: "on"
+  action:
+    - action: light.turn_off
+      target:
+        entity_id: light.luz_recibidor
+      data:
+        transition: 10
+  mode: single
+
+# --- Brillo máximo al amanecer (días laborables) ---
+- id: recibidor_amanecer_laborable
+  alias: "Recibidor - Brillo máximo al amanecer (L-V)"
+  description: "Enciende a brillo completo para las mañanas de días laborables"
+  trigger:
+    - platform: time
+      at: "07:00:00"
+  condition:
+    - condition: time
+      weekday:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+  action:
+    - action: light.turn_on
+      target:
+        entity_id: light.luz_recibidor
+      data:
+        brightness_pct: 100
+        transition: 10
+    - delay: "01:00:00"
+    - action: light.turn_off
+      target:
+        entity_id: light.luz_recibidor
+      data:
+        transition: 5
+  mode: restart
+
+# --- Preparado para sensor de movimiento (fase 2) ---
+# Descomentar cuando se instale el sensor de movimiento en el recibidor:
+#
+# - id: recibidor_movimiento_encender
+#   alias: "Recibidor - Encender por movimiento"
+#   trigger:
+#     - platform: state
+#       entity_id: binary_sensor.sensor_movimiento_recibidor
+#       to: "on"
+#   condition:
+#     - condition: sun
+#       after: sunset
+#       before: sunrise
+#   action:
+#     - action: light.turn_on
+#       target:
+#         entity_id: light.luz_recibidor
+#       data:
+#         brightness_pct: 80
+#     - delay: "00:05:00"
+#     - action: light.turn_off
+#       target:
+#         entity_id: light.luz_recibidor
+#       data:
+#         transition: 5
+#   mode: restart

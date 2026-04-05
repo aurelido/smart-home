@@ -1,7 +1,29 @@
 # =============================================================================
 # Home Assistant - Escenas
 # =============================================================================
-# Las escenas se pueden crear desde la UI o editando este archivo.
 # Documentación: https://www.home-assistant.io/integrations/scene/
 # =============================================================================
-[]
+
+# --- Recibidor ---
+- id: recibidor_bienvenida
+  name: "Recibidor - Bienvenida"
+  icon: mdi:door-open
+  entities:
+    light.luz_recibidor:
+      state: "on"
+      brightness: 200
+
+- id: recibidor_nocturno
+  name: "Recibidor - Nocturno"
+  icon: mdi:weather-night
+  entities:
+    light.luz_recibidor:
+      state: "on"
+      brightness: 50
+
+- id: recibidor_apagado
+  name: "Recibidor - Apagado"
+  icon: mdi:lightbulb-off
+  entities:
+    light.luz_recibidor:
+      state: "off"

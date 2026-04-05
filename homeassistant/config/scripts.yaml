@@ -1,0 +1,25 @@
+# =============================================================================
+# Home Assistant - Scripts
+# =============================================================================
+# Documentación: https://www.home-assistant.io/integrations/script/
+# =============================================================================
+
+# --- Recibidor ---
+parpadeo_recibidor:
+  alias: "Parpadeo Recibidor"
+  description: "Parpadea la luz del recibidor 3 veces (notificación visual)"
+  sequence:
+    - repeat:
+        count: 3
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: light.luz_recibidor
+          - delay: "00:00:00.5"
+          - action: light.turn_on
+            target:
+              entity_id: light.luz_recibidor
+            data:
+              brightness_pct: 100
+          - delay: "00:00:00.5"
+  mode: single

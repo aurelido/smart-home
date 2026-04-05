@@ -10,16 +10,24 @@
 
 ## Dispositivos actuales
 
-### Philips Hue — Bombilla (Recibidor)
+### Philips Hue White 800 E27 (Recibidor)
 
 | Campo | Valor |
 |-------|-------|
-| Tipo | Iluminación Zigbee |
-| Ubicación | Recibidor |
+| Modelo | Philips Hue White 800 lumen E27 |
+| Modelo Zigbee | `9290022166` (o similar) |
+| Tipo | Iluminación Zigbee (solo blanco, regulable) |
+| Capacidades | Encendido/apagado, brillo (0-254), transición |
+| Ubicación | Recibidor (entrada) |
 | Protocolo | Zigbee 3.0 |
-| Integración | Zigbee2MQTT |
-| Nombre amigable | `luz_recibidor` |
-| Notas | Desvincular del bridge Hue antes de emparejar. Reset: encender/apagar 5 veces rápido |
+| Integración | Zigbee2MQTT → MQTT → Home Assistant |
+| Nombre amigable Z2M | `luz_recibidor` |
+| Entidad HA | `light.luz_recibidor` |
+| Rol Zigbee | Router (alimentada por red, extiende la mesh) |
+| Automatizaciones | Atardecer, amanecer L-V, apagado nocturno, modo noche |
+| Escenas | Bienvenida (brillo 80%), Nocturno (brillo 20%), Apagado |
+| Reset de fábrica | Encender y apagar 5 veces rápidamente (2s ciclo) |
+| Notas | Desvincular del bridge Hue antes de emparejar con Z2M |
 
 ### Xiaomi TV Box S (Salón)
 
