@@ -133,11 +133,12 @@ create_directory_structure() {
         fi
     done
     
-    # Set correct permissions
-    chown -R ${PUID}:${PGID} "${ROOT_DIR}/homeassistant"
-    chown -R ${PUID}:${PGID} "${ROOT_DIR}/zigbee2mqtt"
-    chown -R ${PUID}:${PGID} "${ROOT_DIR}/mosquitto"
-    chown -R ${PUID}:${PGID} "${BACKUP_DIR}"
+    # Permisos: los contenedores gestionan sus propios usuarios internos.
+    # Solo asegurar que los directorios son accesibles.
+    chmod -R 755 "${ROOT_DIR}/homeassistant" 2>/dev/null || true
+    chmod -R 755 "${ROOT_DIR}/zigbee2mqtt" 2>/dev/null || true
+    chmod -R 755 "${ROOT_DIR}/mosquitto" 2>/dev/null || true
+    chmod -R 755 "${BACKUP_DIR}" 2>/dev/null || true
     
     log_success "Directory structure created"
 }
@@ -216,7 +217,8 @@ mqtt:
 serial:
   port: ${Z2M_DEVICE}
   adapter: ${Z2M_ADAPTER}
-  baudrate: 115200
+  baudrate: 460800
+  rtscts: true
 
 advanced:
   channel: 25
@@ -251,7 +253,7 @@ listener ${MQTT_WS_PORT}
 protocol websockets
 
 allow_anonymous false
-password_file /mosquitto/config/passwords.txt
+password_file /mosquitto/config/password_file
 
 persistence true
 persistence_location /mosquitto/data/
