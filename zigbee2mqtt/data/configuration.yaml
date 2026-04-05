@@ -5,13 +5,15 @@ mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://192.168.1.100:1883
   user: homeassistant
-  password: CHANGE_ME_MQTT_PASSWORD
+  password: __MQTT_PASSWORD__
   reject_unauthorized: true
 
+# --- Puerto serie (Home Assistant Connect ZBT-2, Silicon Labs MG24) ---
 serial:
-  port: /dev/ttyUSB0
-  adapter: zstack
-  baudrate: 115200
+  port: /dev/ttyACM0
+  adapter: ember
+  baudrate: 460800
+  rtscts: true
 
 advanced:
   channel: 25

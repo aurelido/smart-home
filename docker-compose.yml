@@ -48,7 +48,6 @@ services:
     hostname: home-assistant
     network_mode: ${NETWORK_MODE}
     privileged: false
-    user: "${PUID}:${PGID}"
     
     volumes:
       - ./homeassistant/config:/config:rw
@@ -57,18 +56,12 @@ services:
       - ./homeassistant/media:/media:rw
       - ./backup/homeassistant:/backup:rw
       - /etc/localtime:/etc/localtime:ro
-      - /dev:/dev:ro
     
     environment:
       <<: *default-environment
     
-    devices:
-      - ${Z2M_DEVICE}:${Z2M_DEVICE}
-    
     depends_on:
       mosquitto:
-        condition: service_healthy
-      zigbee2mqtt:
         condition: service_healthy
     
     healthcheck:
@@ -92,12 +85,11 @@ services:
     hostname: zigbee2mqtt
     network_mode: ${NETWORK_MODE}
     privileged: false
-    user: "${PUID}:${PGID}"
     
     volumes:
       - ./zigbee2mqtt/data:/app/data:rw
       - ./backup/zigbee2mqtt:/backup:rw
-      - /dev:/dev:ro
+      - /run/udev:/run/udev:ro
     
     environment:
       <<: *default-environment
@@ -131,10 +123,9 @@ services:
     hostname: mosquitto
     network_mode: ${NETWORK_MODE}
     privileged: false
-    user: "${PUID}:${PGID}"
     
     volumes:
-      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data:rw
       - ./mosquitto/log:/mosquitto/log:rw
       - ./backup/mosquitto:/backup:rw
@@ -147,7 +138,7 @@ services:
       - "${MQTT_WS_PORT}:${MQTT_WS_PORT}"
     
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "\$SYS/#", "-C", "1"]
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "${MQTT_PORT}", "-t", "$$SYS/broker/uptime", "-C", "1", "-u", "homeassistant", "-P", "${MQTT_PASSWORD}", "-W", "3"]
       interval: 30s
       timeout: 10s
       retries: 3
