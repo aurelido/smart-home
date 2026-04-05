@@ -54,7 +54,7 @@ services:
       - ./homeassistant/ssl:/ssl:ro
       - ./homeassistant/addons:/addons:rw
       - ./homeassistant/media:/media:rw
-      - ./backup/homeassistant:/backup:rw
+      - ./backups/homeassistant:/backup:rw
       - /etc/localtime:/etc/localtime:ro
     
     environment:
@@ -88,7 +88,7 @@ services:
     
     volumes:
       - ./zigbee2mqtt/data:/app/data:rw
-      - ./backup/zigbee2mqtt:/backup:rw
+      - ./backups/zigbee2mqtt:/backup:rw
       - /run/udev:/run/udev:ro
     
     environment:
@@ -128,14 +128,12 @@ services:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data:rw
       - ./mosquitto/log:/mosquitto/log:rw
-      - ./backup/mosquitto:/backup:rw
+      - ./backups/mosquitto:/backup:rw
     
     environment:
       <<: *default-environment
     
-    ports:
-      - "${MQTT_PORT}:${MQTT_PORT}"
-      - "${MQTT_WS_PORT}:${MQTT_WS_PORT}"
+    # Ports exposed directly via host network mode (no mapping needed)
     
     healthcheck:
       test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "${MQTT_PORT}", "-t", "$$SYS/broker/uptime", "-C", "1", "-u", "homeassistant", "-P", "${MQTT_PASSWORD}", "-W", "3"]

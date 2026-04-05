@@ -119,10 +119,10 @@ create_directory_structure() {
         "${ROOT_DIR}/mosquitto/config"
         "${ROOT_DIR}/mosquitto/data"
         "${ROOT_DIR}/mosquitto/log"
-        "${BACKUP_DIR}/homeassistant"
-        "${BACKUP_DIR}/zigbee2mqtt"
-        "${BACKUP_DIR}/mosquitto"
-        "${BACKUP_DIR}/logs"
+        "${ROOT_DIR}/backups/homeassistant"
+        "${ROOT_DIR}/backups/zigbee2mqtt"
+        "${ROOT_DIR}/backups/mosquitto"
+        "${ROOT_DIR}/backups/logs"
         "${ROOT_DIR}/logs"
     )
     
