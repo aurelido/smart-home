@@ -18,7 +18,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_FILE="${ROOT_DIR}/logs/deploy.log"
 ENV_FILE="${ROOT_DIR}/.env"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
-BACKUP_DIR="${ROOT_DIR}/backup"
+BACKUP_DIR="${ROOT_DIR}/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # ============================================
@@ -276,6 +276,61 @@ EOF
 }
 
 # ============================================
+# MQTT PASSWORD SETUP
+# ============================================
+setup_mqtt_passwords() {
+    local PASSWORD_FILE="${ROOT_DIR}/mosquitto/config/password_file"
+
+    if [[ -f "$PASSWORD_FILE" ]]; then
+        log_info "MQTT password file already exists. Skipping."
+        return
+    fi
+
+    log_info "Generating MQTT password file..."
+
+    # Get Mosquitto image from .env
+    local MOSQUITTO_IMAGE="${MQTT_IMAGE}:${MQTT_TAG}"
+
+    # Generate password file using Mosquitto container
+    docker run --rm \
+        -v "${ROOT_DIR}/mosquitto/config:/mosquitto/config" \
+        "$MOSQUITTO_IMAGE" \
+        sh -c "
+            mosquitto_passwd -c -b /mosquitto/config/password_file 'homeassistant' '${MQTT_PASSWORD}' && \
+            mosquitto_passwd -b /mosquitto/config/password_file 'zigbee2mqtt' '${MQTT_PASSWORD}'
+        "
+
+    if [[ -s "$PASSWORD_FILE" ]]; then
+        chmod 644 "$PASSWORD_FILE"
+        log_success "MQTT password file created"
+    else
+        log_error "Failed to create MQTT password file"
+        exit 1
+    fi
+}
+
+# ============================================
+# ZIGBEE2MQTT CREDENTIAL INJECTION
+# ============================================
+patch_zigbee2mqtt_credentials() {
+    local Z2M_CONFIG="${ROOT_DIR}/zigbee2mqtt/data/configuration.yaml"
+
+    if [[ ! -f "$Z2M_CONFIG" ]]; then
+        log_warning "Z2M configuration not found. Will be created by create_default_configs."
+        return
+    fi
+
+    if grep -q '__MQTT_PASSWORD__' "$Z2M_CONFIG"; then
+        log_info "Injecting MQTT credentials into Zigbee2MQTT config..."
+        sed -i.bak "s|__MQTT_PASSWORD__|${MQTT_PASSWORD}|g" "$Z2M_CONFIG"
+        rm -f "${Z2M_CONFIG}.bak"
+        log_success "MQTT credentials injected into Zigbee2MQTT config"
+    else
+        log_info "Z2M MQTT credentials already configured"
+    fi
+}
+
+# ============================================
 # DEVICE VERIFICATION
 # ============================================
 verify_zigbee_device() {
@@ -463,6 +518,8 @@ main() {
     validate_env_file
     create_directory_structure
     create_default_configs
+    setup_mqtt_passwords
+    patch_zigbee2mqtt_credentials
     verify_zigbee_device
     create_backup_before_deploy
     stop_existing_containers
