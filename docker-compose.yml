@@ -136,7 +136,7 @@ services:
     # Ports exposed directly via host network mode (no mapping needed)
     
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "${MQTT_PORT}", "-t", "$$SYS/broker/uptime", "-C", "1", "-u", "homeassistant", "-P", "${MQTT_PASSWORD}", "-W", "3"]
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "${MQTT_PORT}", "-t", "$$SYS/broker/uptime", "-C", "1", "-u", "${MQTT_USER_HA}", "-P", "${MQTT_PASS_HA}", "-W", "3"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -78,31 +78,34 @@ cd smart-home
 
 ```bash
 cp .env.example .env
-nano .env
+
+# Generar contraseñas MQTT automáticamente + crear password_file + parchear Z2M
+bash scripts/generate-secrets.sh --apply
 ```
 
-Cambiar todas las contraseñas y tokens:
+Esto genera contraseñas aleatorias para dos usuarios MQTT:
+- `MQTT_USER_Z2M` / `MQTT_PASS_Z2M` — usado por Zigbee2MQTT
+- `MQTT_USER_HA` / `MQTT_PASS_HA` — usado por Home Assistant
 
-- Generar contraseñas MQTT seguras
-- Generar token de autenticación: `openssl rand -hex 32`
-- Verificar la ruta del adaptador (`ZIGBEE_ADAPTER_PATH`)
+Verificar también en `.env`:
+- `Z2M_DEVICE=/dev/ttyACM0` (ruta del adaptador ZBT-2)
+- `HOST_IP=192.168.1.100`
 
-### 2.3 Actualizar la contraseña MQTT en Zigbee2MQTT
-
-Editar `zigbee2mqtt/data/configuration.yaml` y actualizar el campo `password` en la sección `mqtt` con el mismo valor que `MQTT_PASSWORD_ZIGBEE2MQTT` en `.env`.
-
-### 2.4 Ejecutar despliegue
+### 2.3 Ejecutar despliegue
 
 ```bash
-sudo ./scripts/deploy.sh
+bash scripts/deploy.sh
 ```
 
 El script:
-1. Verifica requisitos (Docker, .env)
+1. Verifica requisitos (Docker, .env, credenciales MQTT)
 2. Crea directorios necesarios
-3. Descarga las imágenes Docker
-4. Genera el archivo de contraseñas MQTT
-5. Inicia todos los servicios
+3. Genera configuraciones por defecto (si no existen)
+4. Genera archivo de contraseñas MQTT (si no existe)
+5. Inyecta credenciales en la configuración de Z2M
+6. Verifica el dispositivo Zigbee
+7. Crea backup pre-despliegue
+8. Descarga imágenes y arranca los contenedores
 
 ## Paso 3: Configuración inicial
 
@@ -117,8 +120,8 @@ El script:
    - Ajustes → Dispositivos y servicios → Añadir integración → MQTT
    - Broker: `192.168.1.100`
    - Puerto: `1883`
-   - Usuario: (valor de `MQTT_USER_HOMEASSISTANT` en .env)
-   - Contraseña: (valor de `MQTT_PASSWORD_HOMEASSISTANT` en .env)
+   - Usuario: valor de `MQTT_USER_HA` en `.env`
+   - Contraseña: valor de `MQTT_PASS_HA` en `.env`
 
 ### 3.2 Zigbee2MQTT
 
@@ -201,12 +204,15 @@ sudo dmesg | grep -i "acm\|usb\|nabu"
 docker compose logs zigbee2mqtt
 
 # Errores comunes:
-# "No such file or directory /dev/ttyACM0" → Verificar drivers USB y .env
+# "No such file or directory /dev/ttyACM0" → Verificar drivers USB y Z2M_DEVICE en .env
 # "MQTT connection refused" → Verificar que Mosquitto está corriendo
-# "Failed to start EZSP" → Verificar adapter: ember en configuration.yaml
+# "Not authorized" → Credenciales MQTT no coinciden. Regenerar:
+#   bash scripts/generate-secrets.sh --apply --force
+# "Failed to start EZSP" → Verificar adapter: ember, baudrate: 460800 en Z2M config
 ```
 
 ### Home Assistant no conecta al MQTT
 
-1. Verificar que Mosquitto está en la red `smarthome`: `docker network inspect smarthome`
-2. Dado que HA usa `network_mode: host`, conectar al MQTT broker usando `192.168.1.100:1883` (no el nombre de contenedor)
+1. Con `network_mode: host`, usar `192.168.1.100:1883` como broker (no nombre de contenedor)
+2. Verificar usuario/contraseña: usar `MQTT_USER_HA`/`MQTT_PASS_HA` de `.env`
+3. Regenerar si es necesario: `bash scripts/generate-secrets.sh --apply --force`

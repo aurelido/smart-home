@@ -47,6 +47,19 @@ log_warning() { log "WARNING" "${YELLOW}$*${NC}"; }
 log_error() { log "ERROR" "${RED}$*${NC}"; }
 
 # ============================================
+# HELPER FUNCTIONS
+# ============================================
+is_placeholder() {
+    local value="$1"
+    case "$value" in
+        ""|CAMBIAR_*|cambiar_*|CHANGE_ME*|__*__)
+            return 0 ;;
+        *)
+            return 1 ;;
+    esac
+}
+
+# ============================================
 # VALIDATION FUNCTIONS
 # ============================================
 check_prerequisites() {
@@ -81,7 +94,8 @@ validate_env_file() {
     source "$ENV_FILE"
     
     local required_vars=(
-        "TZ" "PUID" "PGID" "HA_PORT" "Z2M_DEVICE" "MQTT_PASSWORD"
+        "TZ" "PUID" "PGID" "HA_PORT" "Z2M_DEVICE"
+        "MQTT_PASS_Z2M" "MQTT_PASS_HA" "MQTT_USER_Z2M" "MQTT_USER_HA"
     )
     
     local missing_vars=()
@@ -96,8 +110,8 @@ validate_env_file() {
         exit 1
     fi
     
-    if [[ "$MQTT_PASSWORD" == "CHANGE_ME_GENERATE_NEW_PASSWORD" ]]; then
-        log_error "MQTT_PASSWORD not configured. Run generate-secrets.sh"
+    if is_placeholder "${MQTT_PASS_Z2M:-}" || is_placeholder "${MQTT_PASS_HA:-}"; then
+        log_error "Credenciales MQTT no configuradas. Ejecutar: ./scripts/generate-secrets.sh"
         exit 1
     fi
     
@@ -210,8 +224,8 @@ permit_join: false
 mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://${HOST_IP}:${MQTT_PORT}
-  user: homeassistant
-  password: ${MQTT_PASSWORD}
+  user: ${MQTT_USER_Z2M}
+  password: ${MQTT_PASS_Z2M}
   reject_unauthorized: true
 
 serial:
@@ -288,21 +302,19 @@ setup_mqtt_passwords() {
 
     log_info "Generating MQTT password file..."
 
-    # Get Mosquitto image from .env
     local MOSQUITTO_IMAGE="${MQTT_IMAGE}:${MQTT_TAG}"
 
-    # Generate password file using Mosquitto container
     docker run --rm \
         -v "${ROOT_DIR}/mosquitto/config:/mosquitto/config" \
         "$MOSQUITTO_IMAGE" \
         sh -c "
-            mosquitto_passwd -c -b /mosquitto/config/password_file 'homeassistant' '${MQTT_PASSWORD}' && \
-            mosquitto_passwd -b /mosquitto/config/password_file 'zigbee2mqtt' '${MQTT_PASSWORD}'
+            mosquitto_passwd -c -b /mosquitto/config/password_file '${MQTT_USER_Z2M}' '${MQTT_PASS_Z2M}' && \
+            mosquitto_passwd -b /mosquitto/config/password_file '${MQTT_USER_HA}' '${MQTT_PASS_HA}'
         "
 
     if [[ -s "$PASSWORD_FILE" ]]; then
         chmod 644 "$PASSWORD_FILE"
-        log_success "MQTT password file created"
+        log_success "MQTT password file created (users: ${MQTT_USER_Z2M}, ${MQTT_USER_HA})"
     else
         log_error "Failed to create MQTT password file"
         exit 1
@@ -320,10 +332,21 @@ patch_zigbee2mqtt_credentials() {
         return
     fi
 
-    if grep -q '__MQTT_PASSWORD__' "$Z2M_CONFIG"; then
-        log_info "Injecting MQTT credentials into Zigbee2MQTT config..."
-        sed -i.bak "s|__MQTT_PASSWORD__|${MQTT_PASSWORD}|g" "$Z2M_CONFIG"
+    local patched=false
+
+    if grep -q '__MQTT_USER__' "$Z2M_CONFIG"; then
+        sed -i.bak "s|__MQTT_USER__|${MQTT_USER_Z2M}|g" "$Z2M_CONFIG"
         rm -f "${Z2M_CONFIG}.bak"
+        patched=true
+    fi
+
+    if grep -q '__MQTT_PASS__' "$Z2M_CONFIG"; then
+        sed -i.bak "s|__MQTT_PASS__|${MQTT_PASS_Z2M}|g" "$Z2M_CONFIG"
+        rm -f "${Z2M_CONFIG}.bak"
+        patched=true
+    fi
+
+    if [[ "$patched" == "true" ]]; then
         log_success "MQTT credentials injected into Zigbee2MQTT config"
     else
         log_info "Z2M MQTT credentials already configured"

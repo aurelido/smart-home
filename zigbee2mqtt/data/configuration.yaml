@@ -4,8 +4,8 @@ permit_join: false
 mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://192.168.1.100:1883
-  user: homeassistant
-  password: __MQTT_PASSWORD__
+  user: __MQTT_USER__
+  password: __MQTT_PASS__
   reject_unauthorized: true
 
 # --- Puerto serie (Home Assistant Connect ZBT-2, Silicon Labs MG24) ---

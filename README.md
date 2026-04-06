@@ -1,4 +1,4 @@
-# Casa Inteligente — Synology DS723+
+# Casa Nórdica — Synology DS723+
 
 Sistema domótico completo ejecutándose en un Synology DS723+ NAS. Todo gestionado como **Infraestructura como Código**: cada configuración, script y ajuste está documentado y versionado.
 
@@ -6,16 +6,16 @@ Sistema domótico completo ejecutándose en un Synology DS723+ NAS. Todo gestion
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   Synology DS723+                       │
-│                  192.168.1.100                          │
+│             Synology DS723+ (host network)              │
+│                    192.168.1.100                        │
 │                                                         │
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │  Mosquitto   │  │ Zigbee2MQTT  │  │Home Assistant │  │
 │  │  MQTT Broker │◄─┤   Bridge     │  │  Control Hub  │  │
 │  │  :1883       │  │   :8080      │  │   :8123       │  │
 │  └──────┬───────┘  └──────┬───────┘  └───────┬───────┘  │
-│         │                 │                   │          │
-│         └────── smarthome network ────────────┘          │
+│         │         MQTT     │                   │          │
+│         └─────────────────┼───────────────────┘          │
 │                           │                              │
 │                    ┌──────┴───────┐                      │
 │                    │   ZBT-2      │                      │
@@ -31,11 +31,13 @@ Sistema domótico completo ejecutándose en un Synology DS723+ NAS. Todo gestion
          └─────────┘   └────────┘   └──────────┘
 ```
 
+Todos los contenedores usan `network_mode: host` para descubrimiento mDNS/SSDP.
+
 ## Servicios
 
 | Servicio | Imagen | Puerto | Función |
 |----------|--------|--------|---------|
-| Mosquitto | `eclipse-mosquitto:2.0.21` | 1883 | Broker MQTT |
+| Mosquitto | `eclipse-mosquitto:2.0.21` | 1883, 9001 (WS) | Broker MQTT |
 | Zigbee2MQTT | `ghcr.io/koenkk/zigbee2mqtt:2.1.1` | 8080 | Bridge Zigbee→MQTT |
 | Home Assistant | `ghcr.io/home-assistant/home-assistant:2026.3` | 8123 | Centro de control |
 
@@ -55,48 +57,61 @@ Sistema domótico completo ejecutándose en un Synology DS723+ NAS. Todo gestion
 # En el NAS vía SSH
 git clone <repo-url> /volume1/docker/smart-home
 cd /volume1/docker/smart-home
-
-# Configurar secretos
 cp .env.example .env
-nano .env  # Establecer contraseñas reales
 ```
 
-### 3. Desplegar
+### 3. Generar secretos
 
 ```bash
-./scripts/deploy.sh
+# Genera contraseñas MQTT + crea password_file + parchea Z2M config
+bash scripts/generate-secrets.sh --apply
 ```
 
-### 4. Post-instalación
+### 4. Desplegar
+
+```bash
+bash scripts/deploy.sh
+```
+
+### 5. Post-instalación
 
 1. **Home Assistant** → `http://192.168.1.100:8123` — Completar asistente
-2. **MQTT** → En HA: Ajustes → Integraciones → Añadir MQTT → `192.168.1.100:1883`
-3. **Zigbee2MQTT** → `http://192.168.1.100:8080` — Activar emparejamiento
+2. **MQTT** → En HA: Ajustes → Integraciones → Añadir MQTT:
+   - Broker: `192.168.1.100`, Puerto: `1883`
+   - Usuario/contraseña: ver valores `MQTT_USER_HA`/`MQTT_PASS_HA` en `.env`
+3. **Zigbee2MQTT** → `http://192.168.1.100:8080` — Emparejar dispositivos
 
 ## Estructura del proyecto
 
 ```
-├── docker-compose.yml          # Stack de contenedores
-├── .env.example                # Plantilla de secretos
-├── mosquitto/config/           # Configuración del broker MQTT
-├── zigbee2mqtt/data/           # Configuración y datos Zigbee
-├── homeassistant/config/       # Configuración de Home Assistant
+├── docker-compose.yml            # Stack de contenedores
+├── .env.example                  # Plantilla de variables de entorno
+├── mosquitto/config/             # Configuración del broker MQTT
+├── zigbee2mqtt/data/             # Configuración y datos Zigbee
+├── homeassistant/config/         # Configuración de Home Assistant
+│   ├── automations.yaml          # Automatizaciones (recibidor, etc.)
+│   ├── scenes.yaml               # Escenas
+│   └── scripts.yaml              # Scripts de HA
 ├── scripts/
-│   ├── synology-usb-setup.sh   # Drivers USB (tarea de arranque DSM)
-│   ├── deploy.sh               # Despliegue completo
-│   ├── backup.sh               # Copia de seguridad diaria
-│   └── restore.sh              # Restauración desde backup
+│   ├── lib/log.sh                # Librería de logging centralizada
+│   ├── generate-secrets.sh       # Generador de contraseñas MQTT
+│   ├── deploy.sh                 # Despliegue completo
+│   ├── backup.sh                 # Copia de seguridad
+│   ├── rollback.sh               # Rollback
+│   ├── maintenance.sh            # Mantenimiento
+│   ├── cleanup.sh                # Limpieza
+│   └── synology-usb-setup.sh     # Drivers USB (tarea arranque DSM)
 └── docs/
-    ├── SETUP.md                # Guía de instalación completa
-    ├── SECURITY.md             # Política de seguridad
-    ├── BACKUP.md               # Estrategia de copias de seguridad
-    └── DEVICES.md              # Inventario de dispositivos
+    ├── SETUP.md                  # Guía de instalación
+    ├── SECURITY.md               # Política de seguridad
+    ├── BACKUP.md                 # Estrategia de backups
+    └── DEVICES.md                # Inventario de dispositivos
 ```
 
 ## Hardware
 
 - **NAS**: Synology DS723+ (AMD Ryzen R1600, 2GB DDR4 ECC)
-- **Coordinador Zigbee**: Home Assistant Connect ZBT-2 (Silicon Labs MG24)
+- **Coordinador Zigbee**: Home Assistant Connect ZBT-2 (Silicon Labs MG24, ember, 460800 baud)
 - **Red**: ZTE router en modo bridge, NAS con IP estática 192.168.1.100
 
 ## Documentación
@@ -109,21 +124,20 @@ nano .env  # Establecer contraseñas reales
 ## Operaciones comunes
 
 ```bash
-# Actualizar contenedores
-./scripts/deploy.sh update
+# Generar/regenerar contraseñas
+bash scripts/generate-secrets.sh --apply --force
+
+# Desplegar
+bash scripts/deploy.sh
 
 # Copia de seguridad manual
-./scripts/backup.sh
+bash scripts/backup.sh
 
-# Restaurar desde backup
-./scripts/restore.sh
+# Rollback
+bash scripts/rollback.sh
 
 # Ver logs
 docker compose logs -f zigbee2mqtt
 docker compose logs -f homeassistant
 docker compose logs -f mosquitto
-
-# Emparejar nuevo dispositivo Zigbee (activar temporalmente)
-docker exec zigbee2mqtt sh -c \
-  'mosquitto_pub -h mosquitto -t zigbee2mqtt/bridge/request/permit_join -m '"'"'{"value":true,"time":120}'"'"
 ```
