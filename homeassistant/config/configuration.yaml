@@ -17,7 +17,7 @@ recorder:
   auto_purge: true
   commit_interval: 30
   exclude:
-    entities:
+    entity_globs:
       - sensor.*_linkquality
       - sensor.*_rssi
     domains:
