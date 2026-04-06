@@ -142,7 +142,7 @@ apply_mqtt_passwords() {
         "
 
     if [[ -s "$PASSWORD_FILE" ]]; then
-        chmod 644 "$PASSWORD_FILE"
+        chmod 644 "$PASSWORD_FILE" 2>/dev/null || log_warn "No se pudieron cambiar permisos de password_file (normal si no es root)"
         log_success "Archivo de contraseñas creado: $PASSWORD_FILE"
         log_info "  Usuarios: ${MQTT_USER_Z2M}, ${MQTT_USER_HA}"
     else

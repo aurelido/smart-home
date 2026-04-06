@@ -313,7 +313,7 @@ setup_mqtt_passwords() {
         "
 
     if [[ -s "$PASSWORD_FILE" ]]; then
-        chmod 644 "$PASSWORD_FILE"
+        chmod 644 "$PASSWORD_FILE" 2>/dev/null || log_warning "Could not chmod password_file (normal if not root)"
         log_success "MQTT password file created (users: ${MQTT_USER_Z2M}, ${MQTT_USER_HA})"
     else
         log_error "Failed to create MQTT password file"
