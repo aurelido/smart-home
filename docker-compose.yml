@@ -1,30 +1,16 @@
 # ============================================
-# CASA NÓRDICA - Docker Compose Configuration
+# CASA NÓRDICA - Docker Compose
 # ============================================
-# Version: 1.0.0
-# Last Updated: 2026-03-24
-# Description: Main orchestration file for all services
+# Configuración del usuario en .env (solo 6 variables)
+# Valores estáticos hardcodeados aquí para simplicidad
 # ============================================
 
-version: '3.8'
-
 # ============================================
-# DEFAULT ENVIRONMENT VARIABLES
-# ============================================
-x-environment: &default-environment
-  TZ: ${TZ}
-  PUID: ${PUID}
-  PGID: ${PGID}
-
-# ============================================
-# RESTART POLICY
+# CONFIGURACIÓN COMPARTIDA
 # ============================================
 x-restart-policy: &restart-policy
   restart: unless-stopped
 
-# ============================================
-# LOGGING CONFIGURATION
-# ============================================
 x-logging: &logging-config
   logging:
     driver: json-file
@@ -34,21 +20,22 @@ x-logging: &logging-config
       compress: "true"
 
 # ============================================
-# SERVICES
+# SERVICIOS
 # ============================================
 services:
 
   # ============================================
-  # HOME ASSISTANT
+  # HOME ASSISTANT - Centro de control
+  # Puerto: 8123
   # ============================================
   home-assistant:
     <<: [*restart-policy, *logging-config]
-    image: ${HA_IMAGE}:${HA_TAG}
-    container_name: ${HA_CONTAINER_NAME}
+    image: ghcr.io/home-assistant/home-assistant:2026.3
+    container_name: home-assistant
     hostname: home-assistant
-    network_mode: ${NETWORK_MODE}
+    network_mode: host
     privileged: false
-    
+
     volumes:
       - ./homeassistant/config:/config:rw
       - ./homeassistant/ssl:/ssl:ro
@@ -56,92 +43,113 @@ services:
       - ./homeassistant/media:/media:rw
       - ./backups/homeassistant:/backup:rw
       - /etc/localtime:/etc/localtime:ro
-    
+
     environment:
-      <<: *default-environment
-    
+      TZ: ${TZ:-Europe/Madrid}
+
     depends_on:
       mosquitto:
         condition: service_healthy
-    
+
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${HA_PORT}/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8123/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 120s
-    
-    labels:
-      - "com.synology.description=Home Assistant - Smart Home Hub"
-      - "com.synology.version=${HA_TAG}"
 
   # ============================================
-  # ZIGBEE2MQTT
+  # ZIGBEE2MQTT - Bridge Zigbee → MQTT
+  # Puerto: 8080 | Adaptador: ZBT-2 (ember)
   # ============================================
   zigbee2mqtt:
     <<: [*restart-policy, *logging-config]
-    image: ${Z2M_IMAGE}:${Z2M_TAG}
-    container_name: ${Z2M_CONTAINER_NAME}
+    image: ghcr.io/koenkk/zigbee2mqtt:2.1.1
+    container_name: zigbee2mqtt
     hostname: zigbee2mqtt
-    network_mode: ${NETWORK_MODE}
+    network_mode: host
     privileged: false
-    
+
     volumes:
       - ./zigbee2mqtt/data:/app/data:rw
       - ./backups/zigbee2mqtt:/backup:rw
       - /run/udev:/run/udev:ro
-    
+
     environment:
-      <<: *default-environment
+      TZ: ${TZ:-Europe/Madrid}
       ZIGBEE2MQTT_DATA: /app/data
-    
+
     devices:
-      - ${Z2M_DEVICE}:${Z2M_DEVICE}
-    
+      - ${ZIGBEE_DEVICE:-/dev/ttyACM0}:${ZIGBEE_DEVICE:-/dev/ttyACM0}
+
     depends_on:
       mosquitto:
         condition: service_healthy
-    
+
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${Z2M_PORT}/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    
-    labels:
-      - "com.synology.description=Zigbee2MQTT - Zigbee Coordinator"
-      - "com.synology.version=${Z2M_TAG}"
 
   # ============================================
-  # MOSQUITTO MQTT BROKER
+  # MATTER HUB - Bridge HA → Matter (Alexa, Google, Apple)
+  # Puerto: 8482 (Web UI)
+  # Docs: https://riddix.github.io/home-assistant-matter-hub/
+  # ============================================
+  matter-hub:
+    <<: [*restart-policy, *logging-config]
+    image: ghcr.io/riddix/home-assistant-matter-hub:latest
+    container_name: matter-hub
+    hostname: matter-hub
+    network_mode: host
+
+    volumes:
+      - ./matter-hub/data:/data
+
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+      HAMH_HOME_ASSISTANT_URL: http://localhost:8123
+      HAMH_HOME_ASSISTANT_ACCESS_TOKEN: ${HA_ACCESS_TOKEN}
+      HAMH_LOG_LEVEL: info
+      HAMH_HTTP_PORT: "8482"
+
+    depends_on:
+      home-assistant:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8482/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ============================================
+  # MOSQUITTO - Broker MQTT
+  # Puerto: 1883 (MQTT) | 9001 (WebSocket)
   # ============================================
   mosquitto:
     <<: [*restart-policy, *logging-config]
-    image: ${MQTT_IMAGE}:${MQTT_TAG}
-    container_name: ${MQTT_CONTAINER_NAME}
+    image: eclipse-mosquitto:2.0.21
+    container_name: mosquitto
     hostname: mosquitto
-    network_mode: ${NETWORK_MODE}
+    network_mode: host
     privileged: false
-    
+
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data:rw
       - ./mosquitto/log:/mosquitto/log:rw
       - ./backups/mosquitto:/backup:rw
-    
+
     environment:
-      <<: *default-environment
-    
-    # Ports exposed directly via host network mode (no mapping needed)
-    
+      TZ: ${TZ:-Europe/Madrid}
+
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "${MQTT_PORT}", "-t", "$$SYS/broker/uptime", "-C", "1", "-u", "${MQTT_USER_HA}", "-P", "${MQTT_PASS_HA}", "-W", "3"]
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "1883", "-t", "$$SYS/broker/uptime", "-C", "1", "-u", "${MQTT_USER_HA:-homeassistant}", "-P", "${MQTT_PASS_HA}", "-W", "3"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    
-    labels:
-      - "com.synology.description=Mosquitto - MQTT Broker"
-      - "com.synology.version=${MQTT_TAG}"

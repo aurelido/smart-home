@@ -12,6 +12,7 @@ zigbee2mqtt/data/state.json
 zigbee2mqtt/data/log/
 zigbee2mqtt/data/configuration_backup_*.yaml
 zigbee2mqtt/data/migration-*.log
+matter-hub/data/
 homeassistant/config/.storage/
 homeassistant/config/.cloud/
 homeassistant/config/.cache/
